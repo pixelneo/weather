@@ -51,7 +51,7 @@ def create_callbacks():
     return [chk,tb]
 
 if __name__ == '__main__':
-    train, dev, test, dim = load_data('demo.csv')
+    train, dev, test, dim = load_data('data_frydlant.csv')
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
