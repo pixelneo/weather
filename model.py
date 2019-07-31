@@ -6,7 +6,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.shuffle(int(5*10e5))
     dataset = dataset.window(learn_window+predict_window, shift=1, drop_remainder=True)
     dataset = dataset.flat_map(lambda w: w.batch(learn_window+predict_window))
-    dataset = dataset.map(lambda w: (tf.expand_dims(w[:learn_window], -1), w[learn_window:]))
+    dataset = dataset.map(lambda w: (w[:learn_window], w[learn_window:]))
     dataset = dataset.shuffle(int(10^5))
     dataset = dataset.batch(16)
     dataset = dataset.cache()
@@ -14,9 +14,9 @@ def windowize_dataset(dataset, learn_window, predict_window):
 
 def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test=0.2):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
-    data = np.loadtxt(file, dtype=np.float32)
+    data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
     data_length = len(data)
-    data = tf.constant(data, tf.float32)
+    dim = len(data[0])
 
     dataset = tf.data.Dataset.from_tensor_slices(data)
 
@@ -29,33 +29,36 @@ def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test
     devset = windowize_dataset(devset, learn_window, predict_window)
     testset = windowize_dataset(testset, learn_window, predict_window)
 
-    return trainset, devset, testset
+    return trainset, devset, testset, dim
 
-def create_model(predict_window=24):
+def create_model(predict_window=24, predict_feature=2, init_lr=0.001, end_lr=0.00005, steps=10, dim=1):
     model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 1], return_sequences=True),
+        tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 9], return_sequences=True),
         tf.keras.layers.LSTM(64, activation='relu'),
-        tf.keras.layers.Dense(predict_window)
+        tf.keras.layers.RepeatVector(predict_window),
+        tf.keras.layers.LSTM(64, activation='relu', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
-    model.compile(optimizer=tf.optimizers.Adam(), loss='mse')
+    rate = 1 - end_lr/init_lr
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(init_lr, steps, rate, staircase=True) 
+    model.compile(optimizer=tf.optimizers.Adam(learning_rate=lr_schedule), loss='mse')
     return model
 
-if __name__ == '__main__':
-    train, dev, test = load_data('frydlant_teplota2.txt')
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath='./models/chk.ckpt',
-                                                 save_weights_only=True,
-                                                 verbose=1)
-    
-    model = create_model()
-    model.fit(train.take(5), epochs=1, validation_data=dev,workers=8, use_multiprocessing=True, callbacks=[cp_callback])
+def create_callbacks():
+    chk = tf.keras.callbacks.ModelCheckpoint(filepath='./models/chk.ckpt', save_weights_only=True, verbose=1, save_freq='epoch')
+    tb = tf.keras.callbacks.TensorBoard(log_dir='./logs', write_graph=False, update_freq=2048)
 
-    test2 = dev.take(1)
+    return [chk,tb]
+
+if __name__ == '__main__':
+    train, dev, test, dim = load_data('demo.csv')
+
+    model = create_model(dim=dim)
+    callbacks = create_callbacks()
+    model.fit(train.take(5), epochs=10, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+
+    test2 = test.take(1)
     preds = model.predict(test2)
-    print(preds)
-    a, b = test2
-    exit()
-    for val, p in zip(np.array(test2), preds):
-        _, gold = val
-        print(gold)
+    for p in preds:
         print(p)
         print('----')
