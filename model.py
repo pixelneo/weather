@@ -46,7 +46,7 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.001, end_lr=0.0
 
 def create_callbacks():
     chk = tf.keras.callbacks.ModelCheckpoint(filepath='./models/chk.ckpt', save_weights_only=True, verbose=1, save_freq='epoch')
-    tb = tf.keras.callbacks.TensorBoard(log_dir='./logs', write_graph=False, update_freq=2048)
+    tb = tf.keras.callbacks.TensorBoard(log_dir='./logs', write_graph=False, update_freq='epoch')
 
     return [chk,tb]
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train.take(5), epochs=10, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=10, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
