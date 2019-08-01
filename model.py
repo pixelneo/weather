@@ -33,7 +33,7 @@ def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, tes
 
 def lr_scheduler(initial=1e-4, final=1e-5):
     def s(epoch):
-        return max(final, initial/((epoch+1)))
+        return max(final, initial/((epoch+1)*2))
     return s
 
 def feature_loss(feature=2,length=9):
@@ -47,12 +47,12 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.LSTM(64, activation='relu'),
+        tf.keras.layers.GRU(64, activation='tanh', input_shape=[None, 9], return_sequences=True),
+        tf.keras.layers.GRU(64, activation='tanh'),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.LSTM(64, activation='relu', return_sequences=True),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
+        tf.keras.layers.GRU(64, activation='tanh', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='tanh')),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='tanh')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
     model.compile(optimizer=tf.optimizers.Adam(), loss=feature_loss(predict_feature, dim))
