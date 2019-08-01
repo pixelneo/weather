@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 
 def windowize_dataset(dataset, learn_window, predict_window):
-    dataset = dataset.shuffle(int(5*10e5))
     dataset = dataset.window(learn_window+predict_window, shift=1, drop_remainder=True)
     dataset = dataset.flat_map(lambda w: w.batch(learn_window+predict_window))
     dataset = dataset.map(lambda w: (w[:learn_window], w[learn_window:]))
@@ -76,6 +75,7 @@ if __name__ == '__main__':
     test2 = test.take(1)
     preds = model.predict(test2)
     real = []
+    
 
     for x,y in test2:
         real.extend(y[:,:,2])
