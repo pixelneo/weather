@@ -9,6 +9,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.map(lambda w: (w[:learn_window], w[learn_window:]))
     dataset = dataset.shuffle(int(10^5))
     dataset = dataset.batch(16)
+    dataset = dataset.prefetch(4096)
     dataset = dataset.cache()
     return dataset
 
@@ -31,17 +32,26 @@ def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test
 
     return trainset, devset, testset, dim
 
-def create_model(predict_window=24, predict_feature=2, init_lr=0.001, end_lr=0.00005, steps=10, dim=1):
+def feature_loss(feature=2,length=9):
+    def mse_feature_loss(predicted_y, gold_y):
+        # select = tf.one_hot(feature, length)
+        # return tf.losses.MeanSquaredError(tf.multiply(select, predicted_y), tf.multiply(select, gold_y))
+        return tf.losses.mean_squared_error(predicted_y[:,:,2], gold_y[:,:,2])
+    return mse_feature_loss
+
+def create_model(predict_window=24, predict_feature=2, init_lr=0.001, end_lr=0.00005, steps=10, dim=9):
+    
     model = tf.keras.Sequential([
         tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 9], return_sequences=True),
         tf.keras.layers.LSTM(64, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
         tf.keras.layers.LSTM(64, activation='relu', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(50, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
     rate = 1 - end_lr/init_lr
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(init_lr, steps, rate, staircase=True) 
-    model.compile(optimizer=tf.optimizers.Adam(learning_rate=lr_schedule), loss='mse')
+    model.compile(optimizer=tf.optimizers.Adam(learning_rate=lr_schedule), loss=feature_loss(predict_feature, dim))
     return model
 
 def create_callbacks():
@@ -51,14 +61,23 @@ def create_callbacks():
     return [chk]
 
 if __name__ == '__main__':
+    # train, dev, test, dim = load_data('data_frydlant.csv')
     train, dev, test, dim = load_data('data_frydlant.csv')
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=1, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=2, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
+    real = []
+
+    for x,y in test2:
+        real.extend(y[:,:,2])
+        print('x')
+    preds2 = [] 
     for p in preds:
-        print(p)
-        print('----')
+        preds2.append(p[:,2])
+
+    for a,b in zip(real, preds2):
+        print('pred: {} \nreal: {}\n---------------------------'.format('  '.join(map(lambda x: '{:.2f}'.format(x),b)), '  '.join(map(lambda x: '{:.2f}'.format(float(x)),list(a)))))
