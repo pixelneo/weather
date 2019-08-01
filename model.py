@@ -51,7 +51,7 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.
     ])
     rate = 1 - end_lr/init_lr
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(init_lr, steps, rate, staircase=True) 
-    model.compile(optimizer=tf.optimizers.Adam(learning_rate=0.0001), loss=feature_loss(predict_feature, dim))
+    model.compile(optimizer=tf.optimizers.Adam(learning_rate=0.00002), loss=feature_loss(predict_feature, dim))
     return model
 
 def create_callbacks():
