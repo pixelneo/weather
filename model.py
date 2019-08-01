@@ -42,16 +42,16 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.LSTM(64, activation='relu'),
+        tf.keras.layers.GRU(128, activation='relu', input_shape=[None, 9], return_sequences=True),
+        tf.keras.layers.GRU(128, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.LSTM(64, activation='relu', return_sequences=True),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(50, activation='relu')),
+        tf.keras.layers.GRU(128, activation='relu', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
     rate = 1 - end_lr/init_lr
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(init_lr, steps, rate, staircase=True) 
-    model.compile(optimizer=tf.optimizers.Adam(learning_rate=0.00002), loss=feature_loss(predict_feature, dim))
+    model.compile(optimizer=tf.optimizers.Adam(learning_rate=0.0001), loss=feature_loss(predict_feature, dim))
     return model
 
 def create_callbacks():
