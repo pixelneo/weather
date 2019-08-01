@@ -12,7 +12,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.cache()
     return dataset
 
-def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.5, test=0.5):
+def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, test=0.05):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
     data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
     data_length = len(data)
