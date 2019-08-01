@@ -32,6 +32,11 @@ def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test
 
     return trainset, devset, testset, dim
 
+def lr_scheduler(initial=1e-4, final=1e-5):
+    def s(epoch):
+        return max(final, initial/((epoch+1)*2))
+    return s
+
 def feature_loss(feature=2,length=9):
     def mse_feature_loss(predicted_y, gold_y):
         # select = tf.one_hot(feature, length)
@@ -42,23 +47,23 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.GRU(128, activation='relu', batch_input_shape=[16,48, 9], return_sequences=True, stateful=True),
-        tf.keras.layers.GRU(128, activation='relu', stateful=True),
+        tf.keras.layers.GRU(32, activation='relu', batch_input_shape=[16,48, 9], return_sequences=True, stateful=True),
+        tf.keras.layers.GRU(32, activation='relu', stateful=True),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.GRU(128, activation='relu', return_sequences=True, stateful=True),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
+        tf.keras.layers.GRU(32, activation='relu', return_sequences=True, stateful=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='relu')),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
-    rate = 1 - end_lr/init_lr
-    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(init_lr, steps, rate, staircase=True) 
-    model.compile(optimizer=tf.optimizers.Adam(learning_rate=0.0001), loss=feature_loss(predict_feature, dim))
+    model.compile(optimizer=tf.optimizers.Adam(), loss=feature_loss(predict_feature, dim))
     return model
 
 def create_callbacks():
+    lr_schedule = tf.keras.callbacks.LearningRateScheduler(lr_scheduler())
     chk = tf.keras.callbacks.ModelCheckpoint(filepath='./models/chk.ckpt', save_weights_only=True, verbose=1, save_freq='epoch')
     # tb = tf.keras.callbacks.TensorBoard(log_dir='./logs', write_graph=False, update_freq='epoch')
 
-    return [chk]
+    return [chk, lr_schedule]
 
 if __name__ == '__main__':
     # train, dev, test, dim = load_data('data_frydlant.csv')
@@ -66,7 +71,7 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=1, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=3, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
