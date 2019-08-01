@@ -42,10 +42,10 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.GRU(128, activation='relu', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.GRU(128, activation='relu'),
+        tf.keras.layers.GRU(128, activation='relu', batch_input_shape=[16,48, 9], return_sequences=True, stateful=True),
+        tf.keras.layers.GRU(128, activation='relu', stateful=True),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.GRU(128, activation='relu', return_sequences=True),
+        tf.keras.layers.GRU(128, activation='relu', return_sequences=True, stateful=True),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
