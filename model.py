@@ -8,7 +8,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.flat_map(lambda w: w.batch(learn_window+predict_window))
     dataset = dataset.map(lambda w: (w[:learn_window], w[learn_window:]))
     dataset = dataset.shuffle(int(10^5))
-    dataset = dataset.batch(16)
+    dataset = dataset.batch(16, drop_remainder=True)
     dataset = dataset.prefetch(4096)
     dataset = dataset.cache()
     return dataset
