@@ -12,7 +12,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.cache()
     return dataset
 
-def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test=0.2):
+def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.5, test=0.5):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
     data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
     data_length = len(data)
@@ -33,25 +33,26 @@ def load_data(file, learn_window=48, predict_window=24, train=0.7, dev=0.1, test
 
 def lr_scheduler(initial=1e-4, final=1e-5):
     def s(epoch):
-        return max(final, initial/((epoch+1)*2))
+        return max(final, initial/((epoch+1)))
     return s
 
 def feature_loss(feature=2,length=9):
     def mse_feature_loss(predicted_y, gold_y):
         # select = tf.one_hot(feature, length)
         # return tf.losses.MeanSquaredError(tf.multiply(select, predicted_y), tf.multiply(select, gold_y))
-        return tf.losses.mean_squared_error(predicted_y[:,:,2], gold_y[:,:,2])
+        # weight = np.arange(24,12,-0.5)
+        return tf.losses.mean_squared_error(predicted_y[:,:,2], gold_y[:,:,2]) #* weight
     return mse_feature_loss
 
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.GRU(32, activation='relu', batch_input_shape=[16,48, 9], return_sequences=True, stateful=True),
-        tf.keras.layers.GRU(32, activation='relu', stateful=True),
+        tf.keras.layers.LSTM(64, activation='relu', input_shape=[None, 9], return_sequences=True),
+        tf.keras.layers.LSTM(64, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.GRU(32, activation='relu', return_sequences=True, stateful=True),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='relu')),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='relu')),
+        tf.keras.layers.LSTM(64, activation='relu', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
     model.compile(optimizer=tf.optimizers.Adam(), loss=feature_loss(predict_feature, dim))
@@ -70,7 +71,7 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=3, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=5, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
