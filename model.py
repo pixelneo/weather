@@ -32,7 +32,7 @@ def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, tes
 
     return trainset, devset, testset, dim
 
-def lr_scheduler(initial=1.5e-4, final=2e-6):
+def lr_scheduler(initial=1e-4, final=2e-6):
     def s(epoch):
         return max(final, initial/((epoch+1)*2))
     return s
