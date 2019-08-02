@@ -13,7 +13,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.cache()
     return dataset
 
-def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, test=0.05):
+def load_data(file, learn_window=72, predict_window=24, train=0.9, dev=0.05, test=0.05):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
     data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
     data_length = len(data)
@@ -34,7 +34,7 @@ def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, tes
 
 def lr_scheduler(initial=1e-4, final=4e-6):
     def s(epoch):
-        return max(final, initial/((epoch+1)*1.5))
+        return max(final, initial/((epoch+1)*2))
     return s
 
 def feature_loss(feature=2,length=9):
