@@ -7,7 +7,8 @@ def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.flat_map(lambda w: w.batch(learn_window+predict_window))
     dataset = dataset.map(lambda w: (w[:learn_window], w[learn_window:]))
     dataset = dataset.shuffle(int(10^5))
-    dataset = dataset.batch(16, drop_remainder=True)
+    dataset = dataset.batch(128, drop_remainder=True)
+    dataset = dataset.shuffle(int(10^5))
     dataset = dataset.prefetch(4096)
     dataset = dataset.cache()
     return dataset
@@ -47,12 +48,12 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.GRU(64, activation='tanh', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.GRU(64, activation='tanh'),
+        tf.keras.layers.GRU(64, activation='leaky_relu', input_shape=[None, 9], return_sequences=True),
+        tf.keras.layers.GRU(64, activation='leaky_relu'),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.GRU(64, activation='tanh', return_sequences=True),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='tanh')),
-        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32, activation='tanh')),
+        tf.keras.layers.GRU(64, activation='leaky_relu', return_sequences=True),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
+        tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32)),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
     ])
     model.compile(optimizer=tf.optimizers.Adam(), loss=feature_loss(predict_feature, dim))
@@ -71,7 +72,7 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=5, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=8, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
