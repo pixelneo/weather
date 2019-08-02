@@ -32,9 +32,9 @@ def load_data(file, learn_window=48, predict_window=24, train=0.9, dev=0.05, tes
 
     return trainset, devset, testset, dim
 
-def lr_scheduler(initial=1e-4, final=2e-6):
+def lr_scheduler(initial=1e-4, final=4e-6):
     def s(epoch):
-        return max(final, initial/((epoch+1)*2))
+        return max(final, initial/((epoch+1)*1.5))
     return s
 
 def feature_loss(feature=2,length=9):
@@ -50,7 +50,9 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.
     model = tf.keras.Sequential([
         tf.keras.layers.GRU(64, activation='relu', input_shape=[None, 9], return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu'),
+        tf.keras.layers.GRU(64, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
+        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
@@ -73,7 +75,7 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=10, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train, epochs=12, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
