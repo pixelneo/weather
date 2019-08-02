@@ -49,7 +49,7 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.
     
     model = tf.keras.Sequential([
         tf.keras.layers.GRU(64, activation='relu', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.GRU(64, activation='relu'),
+        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
         tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
