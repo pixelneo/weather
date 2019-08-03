@@ -76,7 +76,8 @@ if __name__ == '__main__':
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=12, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    with tf.device('/gpu:0'):
+        model.fit(train, epochs=12, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
