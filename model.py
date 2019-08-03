@@ -15,7 +15,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
 
 def load_data(file, learn_window=72, predict_window=24, train=0.9, dev=0.05, test=0.05):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
-    data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)[:1000]
+    data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
     data = tf.constant(data)
     data_length = len(data)
     dim = len(data[0])
@@ -32,6 +32,38 @@ def load_data(file, learn_window=72, predict_window=24, train=0.9, dev=0.05, tes
     testset = windowize_dataset(testset, learn_window, predict_window)
 
     return trainset, devset, testset, dim
+
+def windowize_dataset_alt(dataset, learn_window, predict_window):
+    x, y = [], []
+    for i in range(len(dataset)-learn_window-predict_window-1):
+        x.append(dataset[i:i+learn_window])
+        y.append(dataset[i+learn_window:i+learn_window+predict_window])
+    p = np.random.permutation(len(x))
+    x = np.array(x)
+    y = np.array(y)
+
+    x = x[p]
+    y = y[p]
+    return x,y
+
+def load_data_alt(file, learn_window=72, predict_window=24, train=0.9, dev=0.05, test=0.05):
+    assert train + dev + test >= 0.999 and train + dev + test <= 1.001
+    data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)
+    data_length = len(data)
+    dim = len(data[0])
+
+    trainset = data[:int(train*data_length)]
+    testset = data[int(train*data_length):int((train+test)*data_length)]
+    devset = data[int((train+test)*data_length):]
+
+    trainset = windowize_dataset_alt(trainset, learn_window, predict_window)
+    testset = windowize_dataset_alt(testset, learn_window, predict_window)
+    devset = windowize_dataset_alt(devset, learn_window, predict_window)
+
+    return trainset, devset, testset, dim
+
+
+
 
 def lr_scheduler(initial=1e-4, final=4e-6):
     def s(epoch):
@@ -50,12 +82,12 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.
     
     model = tf.keras.Sequential([
         tf.keras.layers.GRU(64, activation='relu', input_shape=[None, 9], return_sequences=True),
-        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
+        # tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
         tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
-        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
+        # tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32)),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(9))
@@ -72,11 +104,12 @@ def create_callbacks():
 
 if __name__ == '__main__':
     # train, dev, test, dim = load_data('data_frydlant.csv')
-    train, dev, test, dim = load_data('data_frydlant.csv')
+    (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = load_data_alt('data_frydlant.csv')
+
 
     model = create_model(dim=dim)
     callbacks = create_callbacks()
-    model.fit(train, epochs=12, validation_data=dev, workers=8, use_multiprocessing=True, callbacks=callbacks)
+    model.fit(train_x, train_y, epochs=12, batch_size=128, validation_data=(dev_x, dev_y), workers=8, use_multiprocessing=True, callbacks=callbacks)
 
     test2 = test.take(1)
     preds = model.predict(test2)
