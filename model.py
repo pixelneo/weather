@@ -16,6 +16,7 @@ def windowize_dataset(dataset, learn_window, predict_window):
 def load_data(file, learn_window=72, predict_window=24, train=0.9, dev=0.05, test=0.05):
     assert train + dev + test >= 0.999 and train + dev + test <= 1.001
     data = np.loadtxt(file, skiprows=1, delimiter=',', dtype=np.float32)[:1000]
+    data = tf.constant(data)
     data_length = len(data)
     dim = len(data[0])
 
