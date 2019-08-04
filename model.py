@@ -81,12 +81,12 @@ def feature_loss(feature=2,length=9):
 def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
     
     model = tf.keras.Sequential([
-        tf.keras.layers.GRU(64, activation='relu', input_shape=[None, 9], return_sequences=True),
+        tf.keras.layers.GRU(64, reset_after=true, recurrent_activation='sigmoid', activation='relu', input_shape=[None, 9], return_sequences=True),
         # tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
-        tf.keras.layers.GRU(64, activation='relu'),
+        tf.keras.layers.GRU(64, reset_after=true, recurrent_activation='sigmoid', activation='relu'),
         tf.keras.layers.RepeatVector(predict_window),
-        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
-        tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
+        tf.keras.layers.GRU(64, reset_after=true, recurrent_activation='sigmoid', activation='relu', return_sequences=True),
+        tf.keras.layers.GRU(64, reset_after=true, recurrent_activation='sigmoid', activation='relu', return_sequences=True),
         # tf.keras.layers.GRU(64, activation='relu', return_sequences=True),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(64, activation='relu')),
         tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(32)),
@@ -101,24 +101,27 @@ def create_callbacks():
     # tb = tf.keras.callbacks.TensorBoard(log_dir='./logs', write_graph=False, update_freq='epoch')
 
     return [chk, lr_schedule]
-
-if __name__ == '__main__':
-    # train, dev, test, dim = load_data('data_frydlant.csv')
-    (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = load_data_alt('data_frydlant.csv')
-
-
-    model = create_model(dim=dim)
+def train(model, data):
+    (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = data
     callbacks = create_callbacks()
     model.fit(train_x, train_y, epochs=12, batch_size=128, validation_data=(dev_x, dev_y), workers=8, use_multiprocessing=True, callbacks=callbacks)
 
-    test2 = test.take(1)
-    preds = model.predict(test2)
-    real = []
-    
+if __name__ == '__main__':
+    # train, dev, test, dim = load_data('data_frydlant.csv')
+    data = load_data_alt('data_frydlant.csv')
+    (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = data
 
-    for x,y in test2:
-        real.extend(y[:,:,2])
-        print('x')
+
+    model = create_model(dim=dim)
+    model.load_weights('./models/chk.ckpt')
+
+    # train(model, data)
+
+    preds = model.predict([test_x[:512]])
+
+    real = []
+    for x,y in zip(test_x[:512], test_y[:512]):
+        real.append(y[:,2])
     preds2 = [] 
     for p in preds:
         preds2.append(p[:,2])
