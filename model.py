@@ -113,9 +113,10 @@ if __name__ == '__main__':
 
 
     model = create_model(dim=dim)
-    model.load_weights('./models/chk.ckpt')
+    # model.load_weights('./models/chk.ckpt')
 
-    # train(model, data)
+    train(model, data)
+    exit()
 
     preds = model.predict([test_x[:512]])
 
