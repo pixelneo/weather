@@ -95,6 +95,25 @@ def create_model(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.
     model.compile(optimizer=tf.optimizers.Adam(), loss=feature_loss(predict_feature, dim))
     return model
 
+def teacher_forcing(predict_window=24, predict_feature=2, init_lr=0.0001, end_lr=0.00001, steps=10, dim=9):
+    # tf.keras.backend.set_floatx('float16')
+    encoder_in = tf.keras.layers.Input(batch_shape=(128, 72, 9))
+    encoder = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', activation='relu', return_sequences=True))(encoder_in)
+    encoder_out, f, b = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', return_state=True))(encoder)
+    hidden = [f,b]
+
+    # decoder
+    decoder_in = tf.keras.layers.Input(batch_shape=(128, 72, 9))
+    decoder = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', activation='relu', return_sequences=True))(decoder_in, initial_state=hidden)
+    decoder_out, f2, b2 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', return_state=True))(decoder)
+
+    decoder_dense = tf.keras.layers.Dense(128, activation='relu')(decoder_out)
+    decoder_dense = tf.keras.layers.Dense(predict_window, activation='softmax')(decoder_dense)
+
+    model = tf.keras.models.Model([encoder_in, decoder_in],decoder_dense)
+
+
+
 def create_callbacks():
     lr_schedule = tf.keras.callbacks.LearningRateScheduler(lr_scheduler())
     chk = tf.keras.callbacks.ModelCheckpoint(filepath='./models/chk.ckpt', save_weights_only=True, verbose=1, save_freq='epoch')
@@ -108,15 +127,15 @@ def train(model, data):
 
 if __name__ == '__main__':
     # train, dev, test, dim = load_data('data_frydlant.csv')
-    data = load_data_alt('data_frydlant.csv')
-    (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = data
-
-
-    model = create_model(dim=dim)
+    # data = load_data_alt('data_frydlant.csv')
+    # (train_x, train_y), (dev_x, dev_y), (test_x, test_y), dim = data
+    # model = create_model(dim=dim)
     # model.load_weights('./models/chk.ckpt')
+    teacher_forcing() 
 
-    train(model, data)
     exit()
+    train(model, data)
+    
 
     preds = model.predict([test_x[:512]])
 
