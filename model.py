@@ -2,6 +2,66 @@
 import numpy as np
 import tensorflow as tf
 
+class Encoder(tf.keras.Model):
+    def __init__(self, batch, predict_w, dim):
+        self.encoder_in = tf.keras.layers.Input(batch_shape=(128, 72, 9))
+        self.e1 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', activation='relu', return_sequences=True))
+        self.e2 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', return_state=True))
+    def call(self, x):
+        x = self.encoder_in(x)
+        x = self.e1(x)
+        out, f, b= self.e2(x)
+        hidden = [f,b]
+        return out, hidden
+
+# from tensorflow docs
+class BahdanauAttention(tf.keras.Model):
+  def __init__(self, units):
+    super(BahdanauAttention, self).__init__()
+    self.W1 = tf.keras.layers.Dense(units)
+    self.W2 = tf.keras.layers.Dense(units)
+    self.V = tf.keras.layers.Dense(1)
+
+  def call(self, query, values):
+    # hidden shape == (batch_size, hidden size)
+    # hidden_with_time_axis shape == (batch_size, 1, hidden size)
+    # we are doing this to perform addition to calculate the score
+    hidden_with_time_axis = tf.expand_dims(query, 1)
+
+    # score shape == (batch_size, max_length, 1)
+    # we get 1 at the last axis because we are applying score to self.V
+    # the shape of the tensor before applying self.V is (batch_size, max_length, units)
+    score = self.V(tf.nn.tanh(
+        self.W1(values) + self.W2(hidden_with_time_axis)))
+
+    # attention_weights shape == (batch_size, max_length, 1)
+    attention_weights = tf.nn.softmax(score, axis=1)
+
+    # context_vector shape after sum == (batch_size, hidden_size)
+    context_vector = attention_weights * values
+    context_vector = tf.reduce_sum(context_vector, axis=1)
+
+    return context_vector, attention_weights
+
+class Decoder(tf.keras.Model):
+    def __init__(self, batch, predict_w, dim):
+        self.decoder_in = tf.keras.layers.Input(batch_shape=(128, 72, 9))
+        self.d1 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', activation='relu', return_sequences=True))
+        self.d2 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64, recurrent_activation='sigmoid', return_state=True))
+
+        self.dense = tf.keras.layers.Dense(128, activation='relu')
+        self.dense2 = tf.keras.layers.Dense(predict_window, activation='softmax')
+
+        self.attention = BahdanauAttention(self.dec_units)
+
+    def call(self, x, hidden):
+        x = self.decoder_in(x)
+        x = self.d1(x, initial_state=hidden)
+        x, _, _ = self.d2(x)
+        x = self.dense(x)
+        out = self.dense2(x)
+        return out
+
 def windowize_dataset(dataset, learn_window, predict_window):
     dataset = dataset.window(learn_window+predict_window, shift=1, drop_remainder=True)
     dataset = dataset.flat_map(lambda w: w.batch(learn_window+predict_window))
@@ -61,9 +121,6 @@ def load_data_alt(file, learn_window=72, predict_window=24, train=0.9, dev=0.05,
     devset = windowize_dataset_alt(devset, learn_window, predict_window)
 
     return trainset, devset, testset, dim
-
-
-
 
 def lr_scheduler(initial=1e-4, final=4e-6):
     def s(epoch):
